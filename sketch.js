@@ -15,6 +15,8 @@ let fallingBlocks = []; // 儲存落下的方塊
 let fallingDrops = []; // 新增獨立的物件儲存雨滴形狀圓球
 let capturedBlocks = 0; // 計算 U 型圖案內接到的方塊數量
 
+let trail = []; // 儲存綠色碗型圖案的軌跡
+
 function preload() {
   // 確保 ml5.js 已正確載入
   if (typeof ml5 === 'undefined') {
@@ -111,14 +113,46 @@ function draw() {
   textSize(16);
   text("413730606黃宣禔", 10, 70);
 
+  // 繪製軌跡
+  noFill();
+  stroke(0, 0, 255); // 藍色
+  strokeWeight(2);
+  beginShape();
+  for (let pos of trail) {
+    vertex(pos.x, pos.y);
+  }
+  endShape();
+
   // 確保至少檢測到一隻手
   if (hands.length > 0) {
-    let hand = hands[0]; // 使用第一隻手
-    if (hand.handInViewConfidence > 0.1) { // 確保手掌在視野中
-      let palmPosition = hand.landmarks[0]; // 手掌中心 (landmarks[0])
-      circleX = palmPosition[0]; // 更新綠色碗型圖案的 X 座標
-      circleY = palmPosition[1]; // 更新綠色碗型圖案的 Y 座標
+    let isTouching = false;
+
+    for (let hand of hands) {
+      if (hand.handInViewConfidence > 0.1) {
+        // 檢查食指 (landmarks[8]) 是否接觸到綠色碗型圖案
+        let indexFinger = hand.landmarks[8];
+        let distanceToGreen = dist(indexFinger[0], indexFinger[1], circleX, circleY);
+
+        if (distanceToGreen < circleRadius) {
+          // 如果接觸到，讓綠色碗型圖案的位置跟隨食指移動
+          circleX = indexFinger[0];
+          circleY = indexFinger[1];
+
+          // 新增位置到軌跡
+          trail.push({ x: circleX, y: circleY });
+
+          isTouching = true;
+        }
+      }
     }
+
+    // 更新拖曳狀態
+    isDragging = isTouching;
+  }
+
+  // 如果手指離開綠色碗型圖案，停止新增軌跡
+  if (!isDragging && trail.length > 0) {
+    trail = trail.slice(0); // 保留現有軌跡
   }
 
   // 繪製綠色 U 型
